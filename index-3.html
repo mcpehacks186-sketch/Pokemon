@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12091f">
+<meta name="description" content="A tiny interactive 1/4th anniversary story.">
+<title>Our Little World ❤️</title>
+<style>
+  :root{
+    --bg:#080612;
+    --bg-2:#12091f;
+    --panel:rgba(255,255,255,.07);
+    --panel-strong:rgba(255,255,255,.11);
+    --border:rgba(255,255,255,.16);
+    --text:#fff8ff;
+    --muted:#cdbfd6;
+    --pink:#ff77bf;
+    --rose:#ff4f9a;
+    --purple:#a06cff;
+    --cyan:#6de7ff;
+    --shadow:0 24px 70px rgba(0,0,0,.45);
+    --radius:28px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  body{overflow-x:hidden}
+  button,input{font:inherit}
+  button{cursor:pointer}
+  .app{position:relative;min-height:100vh;isolation:isolate;overflow:hidden}
+
+  /* ---------- Animated backdrop ---------- */
+  .ambient{position:fixed;inset:0;z-index:-5;overflow:hidden;background:
+    radial-gradient(circle at 20% 20%, rgba(160,108,255,.20), transparent 34%),
+    radial-gradient(circle at 80% 14%, rgba(255,79,154,.16), transparent 32%),
+    radial-gradient(circle at 60% 85%, rgba(109,231,255,.08), transparent 30%),
+    linear-gradient(145deg,var(--bg),var(--bg-2) 60%,#0a0714)}
+  .ambient::after{content:"";position:absolute;inset:-20%;background:conic-gradient(from 180deg at 50% 50%,transparent,rgba(255,255,255,.035),transparent 45%);animation:spin 28s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .orb{position:absolute;border-radius:50%;filter:blur(12px);opacity:.32;animation:drift 14s ease-in-out infinite}
+  .orb.one{width:240px;height:240px;left:-80px;top:12vh;background:#a06cff}
+  .orb.two{width:190px;height:190px;right:-50px;top:36vh;background:#ff4f9a;animation-delay:-5s}
+  .orb.three{width:170px;height:170px;left:32%;bottom:-70px;background:#6de7ff;animation-delay:-9s}
+  @keyframes drift{50%{transform:translate(22px,-18px) scale(1.08)} }
+
+  #particleCanvas{position:fixed;inset:0;z-index:-3;pointer-events:none}
+
+  /* ---------- Layout ---------- */
+  .page{min-height:100vh;display:none;align-items:center;justify-content:center;padding:28px 18px 90px;position:relative}
+  .page.active{display:flex;animation:pageIn .65s cubic-bezier(.22,.8,.24,1)}
+  @keyframes pageIn{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+  .container{width:min(980px,100%);margin:auto}
+  .narrow{width:min(720px,100%)}
+  .center{text-align:center}
+
+  .glass{background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.045));border:1px solid var(--border);box-shadow:var(--shadow);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:var(--radius)}
+  .card{padding:28px}
+
+  /* ---------- Typography ---------- */
+  .eyebrow{font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;color:#e7d5ef;opacity:.85}
+  h1,h2,h3,p{margin-top:0}
+  h1{font-size:clamp(2.6rem,10vw,6.4rem);line-height:.92;letter-spacing:-.055em;margin-bottom:18px}
+  h2{font-size:clamp(2rem,6vw,3.6rem);line-height:1;letter-spacing:-.04em;margin-bottom:14px}
+  h3{font-size:1.2rem;margin-bottom:8px}
+  .gradient-text{background:linear-gradient(110deg,#fff,#ffc4e3 42%,#d8c6ff 75%,#a8f2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .muted{color:var(--muted)}
+  .lead{font-size:1.08rem;line-height:1.75;color:#eadfeb}
+
+  /* ---------- Controls ---------- */
+  .btn{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text);padding:14px 19px;border-radius:999px;min-height:48px;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease,background .2s ease;box-shadow:0 10px 24px rgba(0,0,0,.2)}
+  .btn:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.34);box-shadow:0 14px 30px rgba(0,0,0,.3)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{background:linear-gradient(135deg,rgba(255,79,154,.85),rgba(160,108,255,.85));border-color:transparent}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .top-controls{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:10px}
+  .icon-btn{width:45px;height:45px;border-radius:50%;padding:0;display:grid;place-items:center}
+
+  /* ---------- Loading ---------- */
+  #loadingPage{overflow:hidden}
+  .loader-wrap{width:min(610px,100%);text-align:center}
+  .loader-heart{font-size:4.6rem;display:inline-block;filter:drop-shadow(0 0 28px rgba(255,79,154,.45));animation:heartBeat 1.45s ease-in-out infinite}
+  @keyframes heartBeat{0%,100%{transform:scale(1)}18%{transform:scale(1.08)}32%{transform:scale(.98)}52%{transform:scale(1.05)}}
+  .loader-copy{min-height:34px;margin:18px 0;color:#efe5f4;font-size:1.08rem}
+  .progress{height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
+  .progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--purple),var(--pink),var(--cyan));border-radius:inherit;box-shadow:0 0 20px rgba(255,119,191,.6);transition:width .18s linear}
+  .loader-percent{margin-top:11px;font-variant-numeric:tabular-nums;color:#d9cde0}
+
+  /* ---------- Lock ---------- */
+  .lock-card{max-width:520px;margin:auto;padding:34px}
+  .lock{width:86px;height:86px;border-radius:28px;margin:0 auto 20px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(255,119,191,.18),rgba(160,108,255,.17));border:1px solid rgba(255,255,255,.14);font-size:2.4rem;box-shadow:inset 0 0 30px rgba(255,255,255,.04)}
+  .input-row{display:flex;gap:10px;margin-top:18px}
+  .input{width:100%;height:52px;border-radius:16px;border:1px solid rgba(255,255,255,.14);outline:none;background:rgba(0,0,0,.18);color:var(--text);padding:0 16px;text-align:center;letter-spacing:.3em}
+  .input:focus{border-color:rgba(255,119,191,.65);box-shadow:0 0 0 4px rgba(255,119,191,.09)}
+  .attempt{min-height:26px;margin:12px 0 0;color:#ffb8dd;font-size:.95rem}
+  .shake{animation:shake .45s ease}
+  @keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+  .unlock-flash{animation:unlock .9s ease forwards}
+  @keyframes unlock{0%{box-shadow:0 0 0 rgba(255,255,255,0)}40%{box-shadow:0 0 80px 20px rgba(255,119,191,.35)}100%{box-shadow:0 0 0 rgba(255,255,255,0)}}
+  .hint{font-size:.82rem;color:#a99aad;margin-top:13px}
+
+  /* ---------- Hero ---------- */
+  .hero{text-align:center;padding-top:70px}
+  .hero-badge{display:inline-flex;gap:8px;align-items:center;padding:9px 13px;border-radius:999px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.12);font-size:.8rem;color:#e6d7eb;margin-bottom:18px}
+  .hero-sub{max-width:650px;margin:0 auto 26px;color:#e0d3e4;line-height:1.8}
+  .pulse-ring{display:inline-grid;place-items:center;width:86px;height:86px;border-radius:50%;position:relative;margin:8px 0 28px}
+  .pulse-ring::before,.pulse-ring::after{content:"";position:absolute;inset:0;border-radius:inherit;border:1px solid rgba(255,119,191,.28);animation:ring 2.3s ease-out infinite}
+  .pulse-ring::after{animation-delay:1.15s}
+  @keyframes ring{0%{transform:scale(.75);opacity:.8}80%,100%{transform:scale(1.65);opacity:0}}
+  .pulse-core{width:70px;height:70px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,79,154,.4),rgba(160,108,255,.36));font-size:2rem;box-shadow:0 0 30px rgba(255,79,154,.26)}
+
+  /* ---------- Section headings ---------- */
+  .section-head{text-align:center;margin-bottom:24px}
+  .section-head p{max-width:680px;margin:0 auto;color:#ccbfd4;line-height:1.75}
+
+  /* ---------- Duration ---------- */
+  .duration-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:24px}
+  .duration-card{padding:20px 10px;text-align:center;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:22px;min-width:0;transition:transform .25s ease,border-color .25s ease,background .25s ease}
+  .duration-card.bump{animation:numberBump .42s ease}
+  @keyframes numberBump{0%{transform:translateY(0);box-shadow:none}45%{transform:translateY(-5px) scale(1.03);box-shadow:0 0 26px rgba(255,119,191,.15)}100%{transform:none}}
+  .duration-number{font-size:clamp(1.9rem,5vw,3rem);font-weight:760;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+  .duration-label{margin-top:8px;font-size:.8rem;color:#bcaec4}
+  .duration-note{text-align:center;color:#d6c8dc;margin:22px auto 0;max-width:640px;line-height:1.7}
+  .forever-pill{margin:12px auto 0;width:max-content;max-width:100%;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:.8rem;color:#d8ccdf}
+
+  /* ---------- Distance ---------- */
+  .distance-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:26px}
+  .distance-card{padding:24px;position:relative;overflow:hidden}
+  .distance-card::after{content:"";position:absolute;inset:auto -25% -55% auto;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,119,191,.18),transparent 65%)}
+  .quote-large{font-size:clamp(1.6rem,4.7vw,3rem);line-height:1.18;letter-spacing:-.03em;margin-bottom:28px}
+  .tiny-line{color:#bbaec2;line-height:1.7}
+
+  /* ---------- Timeline ---------- */
+  .timeline{position:relative;margin-top:28px}
+  .timeline::before{content:"";position:absolute;left:18px;top:0;bottom:0;width:1px;background:linear-gradient(var(--pink),rgba(255,255,255,.04))}
+  .timeline-item{position:relative;padding-left:54px;margin:0 0 18px}
+  .timeline-dot{position:absolute;left:9px;top:20px;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--purple));box-shadow:0 0 0 5px rgba(255,119,191,.09),0 0 25px rgba(255,119,191,.28)}
+  .timeline-card{padding:20px 20px 19px;cursor:pointer;transition:transform .25s ease,border-color .25s ease}
+  .timeline-card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.25)}
+  .timeline-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .timeline-date{font-size:.78rem;color:#af9fb8}
+  .timeline-reveal{max-height:0;overflow:hidden;color:#cdbfd4;line-height:1.7;transition:max-height .5s ease,margin-top .5s ease}
+  .timeline-card.open .timeline-reveal{max-height:180px;margin-top:10px}
+
+  /* ---------- Letter ---------- */
+  .letter{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;line-height:1.9;color:#f2e8f1;white-space:pre-wrap}
+  .letter-top{font-family:system-ui,sans-serif;display:flex;justify-content:space-between;gap:10px;color:#c9b9d0;font-size:.82rem;margin-bottom:18px}
+  .letter-mask{max-height:240px;overflow:hidden;position:relative;transition:max-height .8s ease}
+  .letter-mask::after{content:"";position:absolute;left:0;right:0;bottom:0;height:80px;background:linear-gradient(transparent,rgba(11,7,18,.98));pointer-events:none;opacity:1;transition:opacity .4s ease}
+  .letter-mask.open{max-height:1400px}
+  .letter-mask.open::after{opacity:0}
+  .letter-actions{text-align:center;margin-top:18px}
+
+  /* ---------- Surprise ---------- */
+  .surprise-zone{text-align:center;position:relative}
+  .danger-label{font-size:.77rem;letter-spacing:.17em;text-transform:uppercase;color:#ffb8dc}
+  .do-not{font-size:clamp(2rem,8vw,4.8rem);font-weight:800;line-height:.95;letter-spacing:-.05em;margin:16px 0}
+  .surprise-btn{margin-top:18px;font-size:1.08rem;padding:17px 25px;background:linear-gradient(135deg,#ff4f9a,#9a65ff);border:0;box-shadow:0 14px 45px rgba(255,79,154,.24)}
+  .surprise-stage{display:none;position:fixed;inset:0;z-index:100;background:radial-gradient(circle at 50% 48%,rgba(255,79,154,.14),rgba(7,4,12,.97) 50%);align-items:center;justify-content:center;padding:24px;text-align:center}
+  .surprise-stage.active{display:flex;animation:fadeIn .55s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .surprise-content{width:min(760px,100%)}
+  .reveal-line{opacity:0;transform:translateY(18px);font-size:clamp(1.4rem,5vw,2.5rem);line-height:1.35;margin:10px 0;animation:revealLine .7s ease forwards}
+  .reveal-line:nth-child(2){animation-delay:.65s}.reveal-line:nth-child(3){animation-delay:1.3s}.reveal-line:nth-child(4){animation-delay:2s}
+  @keyframes revealLine{to{opacity:1;transform:none}}
+  .reveal-title{font-size:clamp(2.8rem,12vw,7rem);line-height:.85;letter-spacing:-.06em;background:linear-gradient(110deg,#fff,#ffc1e1,#bca2ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin:28px 0;opacity:0;animation:titleIn 1s 2.55s cubic-bezier(.2,.8,.2,1) forwards}
+  @keyframes titleIn{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+  .close-surprise{opacity:0;animation:revealLine .7s 3.2s forwards}
+
+  /* ---------- Final ---------- */
+  .final-card{text-align:center;padding:36px 28px}
+  .fraction{font-size:clamp(4rem,16vw,9rem);font-weight:850;letter-spacing:-.09em;line-height:.8;background:linear-gradient(120deg,#ff9dce,#a7a0ff,#9ff4ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin:18px 0 28px}
+  .final-message{max-width:700px;margin:0 auto;color:#dfd3e4;line-height:1.9;font-size:1.05rem}
+  .signature{margin-top:28px;color:#ffbfdc;font-weight:650}
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:40;display:none;gap:8px;padding:8px;border-radius:999px;background:rgba(12,8,20,.76);border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 12px 30px rgba(0,0,0,.32)}
+  .bottom-nav.visible{display:flex}
+  .step-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18);border:0;padding:0;min-height:0}
+  .step-dot.active{width:25px;border-radius:999px;background:linear-gradient(90deg,var(--pink),var(--purple));}
+
+  .page-nav{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .footer-note{text-align:center;color:#86768e;font-size:.74rem;margin-top:30px}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:760px){
+    .page{padding:22px 14px 88px}
+    .card{padding:22px}
+    .duration-grid{grid-template-columns:repeat(2,1fr)}
+    .duration-card:last-child{grid-column:1/-1}
+    .distance-grid{grid-template-columns:1fr}
+    .input-row{flex-direction:column}
+    .input-row .btn{width:100%}
+    .timeline::before{left:16px}
+    .timeline-item{padding-left:42px}
+    .timeline-dot{left:7px}
+  }
+  @media (max-width:430px){
+    .duration-grid{grid-template-columns:repeat(2,1fr);gap:9px}
+    .duration-card{padding:17px 7px}
+    .duration-number{font-size:1.8rem}
+    .duration-label{font-size:.74rem}
+    .hero{padding-top:52px}
+    .lock-card{padding:25px 20px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ambient" aria-hidden="true">
+    <div class="orb one"></div><div class="orb two"></div><div class="orb three"></div>
+  </div>
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+
+  <div class="top-controls" id="topControls" style="display:none">
+    <button class="btn icon-btn" id="musicBtn" type="button" aria-label="Toggle music">♫</button>
+  </div>
+
+  <!-- 01 Loading -->
+  <main id="loadingPage" class="page active">
+    <div class="loader-wrap">
+      <div class="loader-heart">♥</div>
+      <div class="eyebrow">A tiny world made for two</div>
+      <div id="loadingCopy" class="loader-copy">Loading something special...</div>
+      <div class="progress"><span id="progressBar"></span></div>
+      <div id="loadingPercent" class="loader-percent">0%</div>
+    </div>
+  </main>
+
+  <!-- 02 Lock -->
+  <main id="lockPage" class="page">
+    <section class="glass lock-card center" id="lockCard">
+      <div class="lock">🔐</div>
+      <div class="eyebrow">Private little world</div>
+      <h1 style="font-size:clamp(2.35rem,10vw,4.5rem);margin-top:9px">Hmm... this seems to be locked.</h1>
+      <p class="muted">There is a password. Obviously. 😌</p>
+      <form id="lockForm" autocomplete="off">
+        <div class="input-row">
+          <input class="input" id="passwordInput" inputmode="numeric" maxlength="16" type="password" placeholder="••••" aria-label="Password">
+          <button class="btn primary" type="submit">Unlock ✨</button>
+        </div>
+      </form>
+      <div class="attempt" id="attemptMessage" aria-live="polite"></div>
+      <div class="hint">It is only a cute website lock — not real security. ❤️</div>
+    </section>
+  </main>
+
+  <!-- 03 Welcome -->
+  <main id="welcomePage" class="page">
+    <section class="container hero">
+      <div class="hero-badge">♡ 1/4th chapter unlocked</div>
+      <div class="pulse-ring"><div class="pulse-core">❤</div></div>
+      <h1><span class="gradient-text">Happy 1/4th<br>Anniversary, <span data-her-name></span>.</span></h1>
+      <p class="hero-sub">No giant movie montage. No fake memories. Just a little digital world for the two people who somehow made a screen feel a lot less like a screen.</p>
+      <button class="btn primary" data-next="duration" type="button">ENTER OUR LITTLE WORLD →</button>
+      <div class="footer-note">Two places. One connection. One very suspiciously cute website.</div>
+    </section>
+  </main>
+
+  <!-- 04 Duration -->
+  <main id="durationPage" class="page">
+    <section class="container">
+      <div class="section-head">
+        <div class="eyebrow">Chapter 01 · The part already lived</div>
+        <h2>We've been us for... ❤️</h2>
+        <p>We are not counting down to something. We are counting how far we've already come — and the clock is still running.</p>
+      </div>
+      <div class="glass card">
+        <div class="duration-grid" id="durationGrid">
+          <div class="duration-card" data-unit="months"><div class="duration-number" id="monthsValue">00</div><div class="duration-label">Months</div></div>
+          <div class="duration-card" data-unit="days"><div class="duration-number" id="daysValue">00</div><div class="duration-label">Days</div></div>
+          <div class="duration-card" data-unit="hours"><div class="duration-number" id="hoursValue">00</div><div class="duration-label">Hours</div></div>
+          <div class="duration-card" data-unit="minutes"><div class="duration-number" id="minutesValue">00</div><div class="duration-label">Minutes</div></div>
+          <div class="duration-card" data-unit="seconds"><div class="duration-number" id="secondsValue">00</div><div class="duration-label">Seconds</div></div>
+        </div>
+        <p class="duration-note">“And every second since then has been one more second of us. ❤️”</p>
+        <div class="forever-pill">And we're still counting...</div>
+      </div>
+      <div class="page-nav"><button class="btn primary" data-next="distance" type="button">KEEP GOING →</button></div>
+    </section>
+  </main>
+
+  <!-- 05 Distance -->
+  <main id="distancePage" class="page">
+    <section class="container">
+      <div class="section-head">
+        <div class="eyebrow">Chapter 02 · Distance</div>
+        <h2>Different places. Still somehow... us.</h2>
+        <p>Some relationships get memories from places. Ours got memories from messages, notifications, timings, screenshots, and the tiny things that made us keep coming back.</p>
+      </div>
+      <div class="distance-grid">
+        <article class="glass distance-card">
+          <div class="quote-large">“Different screens.<br>Different schedules.<br>Same connection.”</div>
+          <div class="tiny-line">The screen was never the whole story. It was just where the story happened to start unfolding.</div>
+        </article>
+        <article class="glass distance-card">
+          <h3>Little things that became big things</h3>
+          <p class="tiny-line">Waiting for a message. Seeing a familiar name pop up. Staying in a conversation longer than planned. Laughing at something that should not have been that funny. Somehow, those ordinary moments started feeling important.</p>
+        </article>
+        <article class="glass distance-card">
+          <h3>And then there was the distance</h3>
+          <p class="tiny-line">Distance can make things slower, but it doesn't automatically make them smaller. Sometimes it just teaches you to notice the connection itself.</p>
+        </article>
+        <article class="glass distance-card">
+          <h3>What comes next</h3>
+          <p class="tiny-line">More conversations. More ridiculous jokes. More ordinary days worth remembering. And, somewhere ahead, the possibility of finally turning some digital memories into real-world ones — without pretending we already have.</p>
+        </article>
+      </div>
+      <div class="page-nav"><button class="btn primary" data-next="timeline" type="button">OPEN OUR TIMELINE →</button></div>
+    </section>
+  </main>
+
+  <!-- 06 Timeline -->
+  <main id="timelinePage" class="page">
+    <section class="container narrow">
+      <div class="section-head">
+        <div class="eyebrow">Chapter 03 · Digital journey</div>
+        <h2>A few checkpoints in the chaos.</h2>
+        <p>Tap a card. The hidden part opens. Edit these entries in the configuration section whenever you want to add the real details.</p>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="page-nav"><button class="btn primary" data-next="letter" type="button">THERE'S A LETTER HERE 👀</button></div>
+    </section>
+  </main>
+
+  <!-- 07 Letter -->
+  <main id="letterPage" class="page">
+    <section class="container narrow">
+      <div class="section-head">
+        <div class="eyebrow">Chapter 04 · A little unfairly cute letter</div>
+        <h2>Okay, serious-ish for a minute.</h2>
+      </div>
+      <article class="glass card">
+        <div class="letter-top"><span>From: <span data-your-name></span></span><span>To: <span data-her-name></span> ❤️</span></div>
+        <div class="letter-mask" id="letterMask"><div class="letter" id="letterText"></div></div>
+        <div class="letter-actions"><button class="btn primary" id="letterBtn" type="button">Read the rest... 👀</button></div>
+      </article>
+      <div class="page-nav"><button class="btn primary" data-next="surprise" type="button">I'M NOT READY FOR THE NEXT PART 😭</button></div>
+    </section>
+  </main>
+
+  <!-- 08 Surprise -->
+  <main id="surprisePage" class="page">
+    <section class="container narrow">
+      <div class="glass card surprise-zone">
+        <div class="danger-label">Highly suspicious button ahead</div>
+        <div class="do-not">DON'T PRESS THIS 👀</div>
+        <p class="muted">Seriously. It definitely isn't hiding the dramatic ending of this tiny website.</p>
+        <button class="btn surprise-btn" id="surpriseBtn" type="button">Okay fine... press it ✨</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- 09 Final -->
+  <main id="finalPage" class="page">
+    <section class="container narrow">
+      <div class="glass final-card">
+        <div class="eyebrow">Final chapter · For now</div>
+        <h2>To the next chapter...</h2>
+        <div class="fraction">1/4</div>
+        <p class="final-message">The first quarter is done. And somehow a collection of messages, late nights, waiting, random conversations, tiny arguments, jokes, comfort, and “why are you awake?” moments became something that actually matters. We still have distance. We still have a lot we haven't experienced yet. And that's okay. We don't need to rush the future to appreciate what exists right now. We can keep talking, keep learning each other, keep making ordinary moments a little more special, and let the next chapters arrive when they arrive.</p>
+        <p class="final-message" style="margin-top:18px">So here's to what we've already made — and to whatever comes next. No fake promises. No perfect story. Just one real connection, still counting.</p>
+        <div class="fraction" style="font-size:clamp(3rem,12vw,6.5rem);margin-top:30px">3/4 to go.</div>
+        <p class="lead">And hopefully... a whole lot more after that. ❤️</p>
+        <div class="signature">Happy 1/4th Anniversary, <span data-her-name></span>.</div>
+        <div class="footer-note">Made with questionable levels of effort, affection, and JavaScript.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="bottom-nav" id="bottomNav" aria-label="Story progress">
+    <button class="step-dot active" data-dot="welcome" aria-label="Welcome"></button>
+    <button class="step-dot" data-dot="duration" aria-label="Duration"></button>
+    <button class="step-dot" data-dot="distance" aria-label="Distance"></button>
+    <button class="step-dot" data-dot="timeline" aria-label="Timeline"></button>
+    <button class="step-dot" data-dot="letter" aria-label="Letter"></button>
+    <button class="step-dot" data-dot="surprise" aria-label="Surprise"></button>
+    <button class="step-dot" data-dot="final" aria-label="Final"></button>
+  </div>
+
+  <div class="surprise-stage" id="surpriseStage" role="dialog" aria-modal="true" aria-label="Surprise">
+    <div class="surprise-content">
+      <div class="reveal-line">Okay... you made it this far.</div>
+      <div class="reveal-line">So here's the actual surprise.</div>
+      <div class="reveal-title">YOU<br>MATTER.</div>
+      <div class="reveal-line">Not because the distance is easy.</div>
+      <div class="reveal-line">Because even through a screen, you became someone worth showing up for. ❤️</div>
+      <button class="btn primary close-surprise" id="closeSurprise" type="button">Take me to the final chapter →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   PERSONALIZATION — EDIT THIS SECTION FIRST
+   ========================================================== */
+const CONFIG = {
+  // Change this to her name.
+  girlfriendName: "HER NAME",
+
+  // Change this to your name.
+  yourName: "YOUR NAME",
+
+  // IMPORTANT: this is the exact date/time when the relationship officially started.
+  // Example: "2026-06-01T00:00:00"
+  anniversaryDate: "2026-06-01T00:00:00",
+
+  // Cute website lock. This is NOT real security because everything is client-side.
+  password: "3611",
+
+  // Optional music URL. Leave as "" to keep the site fully music-free.
+  // Use a direct audio file URL (for example, an .mp3 or .ogg hosted somewhere you control).
+  musicURL: "",
+
+  // Edit the letter below. Keep the backticks so line breaks work naturally.
+  letter: `Sunno... pehli baat toh Happy 1/4th Anniversary. ❤️
+
+Honestly, thora ajeeb lagta hai ke ek choti si screen, messages aur notifications ke through kisi ko itna important banaya ja sakta hai. Lekin apparently humne woh experiment bina permission ke kar liya. 😭
+
+Humne abhi tak milna bhi nahi hua, video call bhi nahi hui, aur phir bhi itne saare chhote chhote moments hain jo apni jagah bana chuke hain. Kabhi late-night baatein, kabhi random bakwaas, kabhi bas ek message ka wait... aur kabhi woh simple sa “online?” jo pata nahi kyun important lagne lagta hai.
+
+Aur haan, distance hai. Bohat smart ban ke keh sakte hain ke distance sirf ek number hai... lekin obviously kabhi kabhi annoying bhi hota hai. 😭 Phir bhi, mujhe lagta hai asli baat distance ka zero hona nahi hai. Asli baat ye hai ke distance ke bawajood humne ek connection banaya.
+
+Aur madam, abhi toh sirf 1/4th hua hai. Matlab project ka pehla quarter complete hua aur tum already itni aadat ban chuki ho ke ab uninstall karna mushkil lag raha hai. 😭😂
+
+Baaki 3/4th ka kya hoga, woh future jaane. Main bas itna chahta hoon ke jo bhi next chapters hon, woh fake perfect story na hon. Bas real hon. Thori hasi, thori bakwaas, thori narazgi, thori manane wali energy, aur bohat saari woh conversations jin ke liye hum baad mein kahen: “Hum itni der kis baat pe baat kar rahe thay?”
+
+So... thank you. For being here. For every message, every late-night conversation, every small moment that quietly became important.
+
+Happy 1/4th Anniversary. ❤️
+
+Ab zyada emotional mat hona. Website banane mein already bohat JavaScript ro chuki hai.`
+};
+
+/* ==========================================================
+   EDITABLE TIMELINE — replace these placeholders with your real details
+   ========================================================== */
+const TIMELINE = [
+  { date: "26 Nov 2025", title: "First message", text: "Replace this with the story of your first conversation — what was said, who texted first, or why you remember it." },
+  { date: "Your date", title: "First long conversation", text: "Add the conversation that made you realise this was becoming more than a random chat." },
+  { date: "Your date", title: "When we became closer", text: "Add the little period where talking started feeling natural, frequent, and important." },
+  { date: "End of May / Start of June 2026", title: "Confession / relationship start", text: "Replace this with the exact date and what happened when your relationship officially started." },
+  { date: "Your date", title: "Funniest moment", text: "Add your funniest inside joke, ridiculous conversation, or moment you still remember." },
+  { date: "Your date", title: "Most memorable conversation", text: "Add the conversation that meant the most to you." },
+  { date: "Today", title: "1/4th Anniversary", text: "This is where the first quarter of the story gets a little pause — before the next chapter starts." }
+];
+
+/* ==========================================================
+   APP STATE
+   ========================================================== */
+const pages = ["welcome","duration","distance","timeline","letter","surprise","final"];
+let currentPage = "welcome";
+let attempts = 0;
+let durationTimer = null;
+let musicStarted = false;
+let audio = null;
+
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+/* ---------- Initial setup ---------- */
+function initPersonalization(){
+  $$('[data-her-name]').forEach(el => el.textContent = CONFIG.girlfriendName);
+  $$('[data-your-name]').forEach(el => el.textContent = CONFIG.yourName);
+  $('#letterText').textContent = CONFIG.letter;
+  renderTimeline();
+  prepareMusic();
+}
+
+function showPage(name){
+  if(!pages.includes(name)) return;
+  $$('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById(name + 'Page');
+  if(target) target.classList.add('active');
+  currentPage = name;
+
+  const unlocked = name !== 'welcome';
+  $('#topControls').style.display = unlocked ? 'flex' : 'none';
+  $('#bottomNav').classList.toggle('visible', unlocked);
+  $$('.step-dot').forEach(btn => btn.classList.toggle('active', btn.dataset.dot === name));
+
+  if(name === 'duration') startDurationCounter();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function nextPage(name){
+  startMusicFromUserGesture();
+  showPage(name);
+}
+
+$$('[data-next]').forEach(btn => btn.addEventListener('click', () => nextPage(btn.dataset.next)));
+
+/* ---------- Loading sequence ---------- */
+const loadingLines = [
+  "Loading something special...",
+  "Preparing memories...",
+  "Calculating distance...",
+  "Checking suspicious levels of cuteness...",
+  "Almost there..."
+];
+function runLoading(){
+  const bar = $('#progressBar');
+  const percent = $('#loadingPercent');
+  const copy = $('#loadingCopy');
+  let value = 0;
+  const timer = setInterval(() => {
+    value += Math.floor(Math.random()*5) + 3;
+    if(value > 100) value = 100;
+    bar.style.width = value + '%';
+    percent.textContent = value + '%';
+    const idx = Math.min(loadingLines.length-1, Math.floor(value/22));
+    copy.textContent = loadingLines[idx];
+    if(value >= 100){
+      clearInterval(timer);
+      setTimeout(() => showPage('lock'), 420);
+    }
+  }, 85);
+}
+
+/* ---------- Cute lock ---------- */
+const lockForm = $('#lockForm');
+lockForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#passwordInput');
+  const card = $('#lockCard');
+  const value = input.value.trim();
+  if(value === CONFIG.password){
+    $('#attemptMessage').textContent = "Unlocked. Welcome in. ❤️";
+    card.classList.add('unlock-flash');
+    startMusicFromUserGesture();
+    setTimeout(() => showPage('welcome'), 650);
+    return;
+  }
+
+  attempts++;
+  const messages = [
+    "Nope 😭 Try again.",
+    "You really thought that was it?",
+    "Okayyy... you're making this difficult."
+  ];
+  if(attempts >= 4){
+    $('#attemptMessage').textContent = `Fine. The password is ${CONFIG.password}. Happy now? 😭❤️`;
+    return;
+  }
+  $('#attemptMessage').textContent = messages[attempts-1] || "Nice try. 😌";
+  input.value = '';
+  card.classList.remove('shake');
+  void card.offsetWidth;
+  card.classList.add('shake');
+  input.focus();
+});
+
+/* ---------- Real-time relationship duration ---------- */
+function getCalendarDuration(start, end){
+  if(end < start){
+    return {months:0, days:0, hours:0, minutes:0, seconds:0, future:true};
+  }
+
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  let anchor = new Date(start.getTime());
+  anchor.setMonth(start.getMonth() + months);
+
+  // If the calendar anchor overshoots now, back off one whole month.
+  if(anchor > end){
+    months--;
+    anchor = new Date(start.getTime());
+    anchor.setMonth(start.getMonth() + months);
+  }
+
+  let remainder = end.getTime() - anchor.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const minuteMs = 60 * 1000;
+  const secondMs = 1000;
+
+  const days = Math.floor(remainder / dayMs);
+  remainder -= days * dayMs;
+  const hours = Math.floor(remainder / hourMs);
+  remainder -= hours * hourMs;
+  const minutes = Math.floor(remainder / minuteMs);
+  remainder -= minutes * minuteMs;
+  const seconds = Math.floor(remainder / secondMs);
+
+  return {months, days, hours, minutes, seconds, future:false};
+}
+
+function pulseValue(id, value){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const formatted = String(value).padStart(2,'0');
+  if(el.textContent !== formatted){
+    el.textContent = formatted;
+    const card = el.closest('.duration-card');
+    card.classList.remove('bump');
+    void card.offsetWidth;
+    card.classList.add('bump');
+  }
+}
+
+function updateDuration(){
+  const start = new Date(CONFIG.anniversaryDate);
+  const now = new Date();
+  if(Number.isNaN(start.getTime())){
+    $('#monthsValue').textContent = '--';
+    $('#daysValue').textContent = '--';
+    $('#hoursValue').textContent = '--';
+    $('#minutesValue').textContent = '--';
+    $('#secondsValue').textContent = '--';
+    return;
+  }
+
+  const d = getCalendarDuration(start, now);
+  if(d.future){
+    ['months','days','hours','minutes','seconds'].forEach(u => pulseValue(u+'Value',0));
+    return;
+  }
+
+  pulseValue('monthsValue', d.months);
+  pulseValue('daysValue', d.days);
+  pulseValue('hoursValue', d.hours);
+  pulseValue('minutesValue', d.minutes);
+  pulseValue('secondsValue', d.seconds);
+}
+
+function startDurationCounter(){
+  if(durationTimer) clearInterval(durationTimer);
+  updateDuration();
+  durationTimer = setInterval(updateDuration,1000);
+}
+
+/* ---------- Timeline ---------- */
+function renderTimeline(){
+  const root = $('#timeline');
+  root.innerHTML = TIMELINE.map((item, i) => `
+    <div class="timeline-item">
+      <div class="timeline-dot" aria-hidden="true"></div>
+      <article class="timeline-card glass" tabindex="0" data-index="${i}">
+        <div class="timeline-top">
+          <div><h3>${escapeHtml(item.title)}</h3><div class="timeline-date">${escapeHtml(item.date)}</div></div>
+          <div aria-hidden="true">⌄</div>
+        </div>
+        <div class="timeline-reveal">${escapeHtml(item.text)}</div>
+      </article>
+    </div>
+  `).join('');
+
+  $$('.timeline-card', root).forEach(card => {
+    const toggle = () => card.classList.toggle('open');
+    card.addEventListener('click', toggle);
+    card.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  });
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+}
+
+/* ---------- Letter reveal ---------- */
+$('#letterBtn').addEventListener('click', () => {
+  const mask = $('#letterMask');
+  const btn = $('#letterBtn');
+  mask.classList.toggle('open');
+  btn.textContent = mask.classList.contains('open') ? 'Okay, that was enough feelings. 😭' : 'Read the rest... 👀';
+});
+
+/* ---------- Surprise ---------- */
+$('#surpriseBtn').addEventListener('click', () => {
+  startMusicFromUserGesture();
+  $('#surpriseStage').classList.add('active');
+  burstParticles();
+});
+$('#closeSurprise').addEventListener('click', () => {
+  $('#surpriseStage').classList.remove('active');
+  showPage('final');
+});
+
+/* ---------- Bottom nav: only allows already-unlocked story dots ---------- */
+$$('.step-dot').forEach(dot => dot.addEventListener('click', () => {
+  const target = dot.dataset.dot;
+  const currentIndex = pages.indexOf(currentPage);
+  const targetIndex = pages.indexOf(target);
+  // The user may only jump backward or to the current page; forward movement remains sequential.
+  if(targetIndex <= currentIndex) showPage(target);
+}));
+
+/* ---------- Music ---------- */
+function prepareMusic(){
+  const btn = $('#musicBtn');
+  if(!CONFIG.musicURL){
+    btn.title = 'Add CONFIG.musicURL to enable music';
+    btn.textContent = '♫';
+    btn.style.opacity = '.65';
+    return;
+  }
+  audio = new Audio(CONFIG.musicURL);
+  audio.loop = true;
+  audio.preload = 'none';
+  btn.title = 'Toggle music';
+  btn.style.opacity = '1';
+}
+function startMusicFromUserGesture(){
+  if(!audio || musicStarted) return;
+  audio.play().then(() => {
+    musicStarted = true;
+    $('#musicBtn').textContent = '♫ ON';
+  }).catch(() => {
+    // Browser blocked playback; a later tap on the music button can still retry.
+  });
+}
+$('#musicBtn').addEventListener('click', () => {
+  if(!audio) return;
+  if(audio.paused){
+    audio.play().then(() => { musicStarted = true; $('#musicBtn').textContent='♫ ON'; }).catch(() => {});
+  }else{
+    audio.pause();
+    $('#musicBtn').textContent='♫ OFF';
+  }
+});
+
+/* ---------- Lightweight particles ---------- */
+const canvas = $('#particleCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+let canvasW=0, canvasH=0;
+function resizeCanvas(){
+  const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+  canvasW = window.innerWidth;
+  canvasH = window.innerHeight;
+  canvas.width = Math.floor(canvasW*ratio);
+  canvas.height = Math.floor(canvasH*ratio);
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+}
+function seedParticles(count = Math.min(55, Math.max(22, Math.floor(window.innerWidth/18)))){
+  particles = Array.from({length:count}, () => ({
+    x:Math.random()*canvasW,
+    y:Math.random()*canvasH,
+    r:Math.random()*1.7+.5,
+    vx:(Math.random()-.5)*.12,
+    vy:-(Math.random()*.22+.05),
+    a:Math.random()*.45+.12,
+    tw:Math.random()*Math.PI*2
+  }));
+}
+function animateParticles(){
+  ctx.clearRect(0,0,canvasW,canvasH);
+  for(const p of particles){
+    p.x += p.vx;
+    p.y += p.vy;
+    p.tw += .025;
+    if(p.y < -10){p.y = canvasH + 10; p.x=Math.random()*canvasW;}
+    if(p.x < -10) p.x=canvasW+10;
+    if(p.x > canvasW+10) p.x=-10;
+    const alpha = Math.max(.04, p.a + Math.sin(p.tw)*.08);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+  }
+  requestAnimationFrame(animateParticles);
+}
+function burstParticles(){
+  const extras = Array.from({length:28}, (_,i) => ({
+    x:canvasW/2, y:canvasH/2, r:Math.random()*2+1, vx:(Math.random()-.5)*7, vy:(Math.random()-.5)*7, a:.8, tw:i
+  }));
+  let t=0;
+  const timer = setInterval(() => {
+    t++;
+    extras.forEach(p => { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy *= .96; p.a *= .94; });
+    ctx.save();
+    extras.forEach(p => {
+      ctx.fillStyle=`rgba(255,119,191,${p.a})`;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    });
+    ctx.restore();
+    if(t>32) clearInterval(timer);
+  },30);
+}
+window.addEventListener('resize', () => { resizeCanvas(); seedParticles(); });
+
+/* ---------- Start ---------- */
+resizeCanvas();
+seedParticles();
+animateParticles();
+initPersonalization();
+runLoading();
+</script>
+</body>
+</html>
